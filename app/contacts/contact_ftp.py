@@ -2,6 +2,7 @@ import ftplib
 import json
 import os
 import re
+import asyncio
 
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
@@ -18,7 +19,7 @@ class Contact(BaseWorld):
 
     async def start(self):
         server = FtpServer(self.contact_svc)
-        await server.ftp_server()
+        asyncio.create_task(server.ftp_server())
 
 
 class FtpServer(BaseWorld):
@@ -85,24 +86,34 @@ class FtpServer(BaseWorld):
 
     async def upload_file(self, filename, paw):
         # check if file is beacon or actual file to be stored
-        if re.match(r'^Alive\.txt$', filename):
-            # return True
+        if re.match(r"^Alive\.txt$", filename):
             try:
-                with open(filename) as f:
+                with open(filename, 'r') as f:
                     profile = json.load(f)
+
                 profile['paw'] = profile.get('paw')
                 profile['contact'] = profile.get('contact', self.name)
+                # Uncomment statement be low to run test_beacon in tests/contacts/test_contact_ftp.py
+                # return True
+
                 agent, instructions = await self.contact_svc.handle_heartbeat(**profile)
+                # response = profile
+
                 response = dict(paw=agent.paw,
                                 sleep=await agent.calculate_sleep(),
                                 watchdog=agent.watchdog,
                                 instructions=json.dumps([json.dumps(i.display) for i in instructions]))
+
                 if agent.pending_contact != agent.contact:
                     response['new_contact'] = agent.pending_contact
                     self.log.debug('Sending agent instructions to switch from C2 channel %s to %s' % (
                         agent.contact, agent.pending_contact))
 
-                await self.download_file(json.dumps(response), paw)
+                filename = "Response.txt"
+                with open(filename, "w+") as f:
+                    f.write(json.dumps(response))
+                # Uncomment statement be low to run test_beacon in tests/contacts/test_contact_ftp.py
+                # return True
 
             except Exception as e:
                 self.log.error('FTP file upload error: %s' % e)
