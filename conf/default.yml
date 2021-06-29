@@ -6,18 +6,24 @@ app.contact.dns.socket: 0.0.0.0:8853
 app.contact.ftp: 127.0.0.1
 app.contact.ftp.dir: /tmp/caldera
 app.contact.ftp.port_in: 2222
+app.contact.ftps: 127.0.0.1
+app.contact.ftps.dir: /tmp/caldera
+app.contact.ftps.pass: pass
+app.contact.ftps.port_in: 2222
+app.contact.ftps.user: user
 app.contact.gist: API_KEY
 app.contact.html: /weather
 app.contact.http: http://0.0.0.0:8888
+app.contact.tcp: 0.0.0.0:7010
 app.contact.tunnel.ssh.host_key_file: REPLACE_WITH_KEY_FILE_PATH
 app.contact.tunnel.ssh.host_key_passphrase: REPLACE_WITH_KEY_FILE_PASSPHRASE
 app.contact.tunnel.ssh.socket: 0.0.0.0:8022
 app.contact.tunnel.ssh.user_name: sandcat
 app.contact.tunnel.ssh.user_password: s4ndc4t!
-app.contact.tcp: 0.0.0.0:7010
 app.contact.udp: 0.0.0.0:7011
 app.contact.websocket: 0.0.0.0:7012
 app.knowledge_svc.module: app.utility.base_knowledge_svc
+auth.login.handler.module: default
 crypt_salt: REPLACE_WITH_RANDOM_VALUE
 encryption_key: ADMIN123
 exfil_dir: /tmp/caldera
@@ -36,7 +42,6 @@ plugins:
 - training
 port: 8888
 reports_dir: /tmp
-auth.login.handler.module: default
 requirements:
   go:
     command: go version
