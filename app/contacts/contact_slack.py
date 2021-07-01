@@ -66,8 +66,9 @@ class Contact(BaseWorld):
         for beacon in beacons:
             beacon['contact'] = beacon.get('contact', self.name)
             agent, instructions = await self.contact_svc.handle_heartbeat(**beacon)
-            await self._send_payloads(agent, instructions)
-            await self._send_instructions(agent, instructions)
+            if 'results' not in beacon: 
+                await self._send_payloads(agent, instructions)
+                await self._send_instructions(agent, instructions)
 
     async def get_results(self):
         """
@@ -141,7 +142,6 @@ class Contact(BaseWorld):
                         sleep=await agent.calculate_sleep(),
                         watchdog=agent.watchdog,
                         instructions=json.dumps([json.dumps(i.display) for i in instructions]))
-        # self.log.debug(response)
         if agent.pending_contact != agent.contact:
             response['new_contact'] = agent.pending_contact
             self.log.debug('Sending agent instructions to switch from C2 channel %s to %s' % (agent.contact, agent.pending_contact))
@@ -151,9 +151,8 @@ class Contact(BaseWorld):
         try:
             if await self._wait_for_paw(paw, comm_type='instructions'):
                 return
-            s = await self._post_slack(self._build_slack_content(comm_type='instructions', paw=paw,
-                                                                 files=text))
-            # self.log.debug(s)
+            s = await self._post_slack_message(self._build_slack_message(comm_type='instructions', paw=paw,
+                                                                 data=text))
             return s
             # return await self._post_gist(self._build_gist_content(comm_type='instructions', paw=paw,
             #                                                      files={str(uuid.uuid4()): dict(content=text)}))
@@ -168,10 +167,12 @@ class Contact(BaseWorld):
 
     async def _post_payloads(self, filename, payload_contents, paw):
         try:
-            files = {filename: dict(content=self._encode_string(payload_contents))}
-            if len(files) < 1 or await self._wait_for_paw(paw, comm_type='payloads'):
+            #files = {filename: dict(content=self._encode_string(payload_contents))}
+            #self.log.debug(files)
+            if await self._wait_for_paw(paw, comm_type='payloads'):
                 return
-            return await self._post_gist(self._build_gist_content(comm_type='payloads', paw=paw, files=files))
+            s =  await self._post_slack(self._build_slack_content(comm_type='payloads', paw=paw, files=self._encode_string(payload_contents)))
+            return s
         except Exception as e:
             self.log.warning('Posting payload over c2 (%s) failed! %s' % (self.__class__.__name__, e))
 
@@ -209,14 +210,13 @@ class Contact(BaseWorld):
 
     async def _wait_for_paw(self, paw, comm_type):
         for message in await self._get_slack():
-            # self.log.debug(message)
             if '{}-{}'.format(comm_type, paw) == message['text'].split(' | ')[0]:
                 return True
         return False
 
     async def _get_slack_data(self, comm_type):
         data = await self._get_raw_slack_data(comm_type=comm_type)
-        # await self._delete_slack_messages(timestamps=[i["ts"] for i in data])
+        await self._delete_slack_messages(timestamps=[i["ts"] for i in data])
         return [i["text"].split(" | ")[1:] for i in data]
 
     async def _get_raw_slack_data(self, comm_type):
@@ -227,7 +227,7 @@ class Contact(BaseWorld):
     @api_access
     async def _get_slack(self, session):
         s = json.loads(await self._fetch(session,
-                                         'https://slack.com/api/conversations.history?channel={0}&oldest={1}'.format(self.channelid, int(time.time()-20))))
+                                         'https://slack.com/api/conversations.history?channel={0}&oldest={1}'.format(self.channelid, int(time.time()-60))))
         # self.log.debug(s)
         return s["messages"]
 
@@ -253,12 +253,23 @@ class Contact(BaseWorld):
 
     def _build_slack_content(self, comm_type, paw, files):
         s = dict(channels=self.channelid, initial_comment='{}-{}'.format(comm_type, paw), content=files)
-        # self.log.debug(s)
+        return s
+
+    def _build_slack_message(self, comm_type, paw, data):
+        s = dict(channel=self.channelid, text='{}-{} | {}'.format(comm_type, paw, data))
+        return s
+
+    def _build_slack_file(self, comm_type, paw, files):
+        s = dict(channels=self.channelid, initial_comment='{}-{}'.format(comm_type, paw), file=files)
         return s
 
     @api_access
     async def _post_slack(self, message_content, session):
         return await self._post_form(session, 'https://slack.com/api/files.upload', body=message_content)
+
+    @api_access
+    async def _post_slack_message(self, message_content, session):
+        return await self._post(session, 'https://slack.com/api/chat.postMessage', body=message_content)
 
     @api_access
     async def _post_gist(self, gist_content, session):
