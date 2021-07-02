@@ -66,7 +66,7 @@ class Contact(BaseWorld):
         for beacon in beacons:
             beacon['contact'] = beacon.get('contact', self.name)
             agent, instructions = await self.contact_svc.handle_heartbeat(**beacon)
-            if 'results' not in beacon: 
+            if 'results' not in beacon:
                 await self._send_payloads(agent, instructions)
                 await self._send_instructions(agent, instructions)
 
@@ -152,10 +152,8 @@ class Contact(BaseWorld):
             if await self._wait_for_paw(paw, comm_type='instructions'):
                 return
             s = await self._post_slack_message(self._build_slack_message(comm_type='instructions', paw=paw,
-                                                                 data=text))
+                                                                         data=text))
             return s
-            # return await self._post_gist(self._build_gist_content(comm_type='instructions', paw=paw,
-            #                                                      files={str(uuid.uuid4()): dict(content=text)}))
         except Exception as e:
             self.log.warning('Posting instructions over c2 (%s) failed!: %s' % (self.__class__.__name__, e))
 
@@ -167,11 +165,9 @@ class Contact(BaseWorld):
 
     async def _post_payloads(self, filename, payload_contents, paw):
         try:
-            #files = {filename: dict(content=self._encode_string(payload_contents))}
-            #self.log.debug(files)
             if await self._wait_for_paw(paw, comm_type='payloads'):
                 return
-            s =  await self._post_slack(self._build_slack_content(comm_type='payloads', paw=paw, files=self._encode_string(payload_contents)))
+            s = await self._post_slack(self._build_slack_content(comm_type='payloads', paw=paw, files=self._encode_string(payload_contents)))
             return s
         except Exception as e:
             self.log.warning('Posting payload over c2 (%s) failed! %s' % (self.__class__.__name__, e))
